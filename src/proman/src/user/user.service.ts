@@ -1,4 +1,4 @@
-import { HttpException, Injectable } from "@nestjs/common";
+import { HttpException, Injectable, NotFoundException } from "@nestjs/common";
 import { DatabaseService } from '../database/database.service';
 
 @Injectable()
@@ -10,7 +10,7 @@ export class UserService {
     try {
       return await this.dbService.query(sql);
     } catch (error) {
-      throw new HttpException(error.message, error.getStatus ? error.getStatus() : 500);
+      throw new NotFoundException(error.message, error.getStatus ? error.getStatus() : 500);
     }
   }
 
@@ -26,7 +26,7 @@ export class UserService {
       return user
 
     } catch (error) {
-      throw new HttpException(error.message, error.getStatus ? error.getStatus() : 500);
+      throw new NotFoundException(error.message, error.getStatus ? error.getStatus() : 500);
     }
   }
 
@@ -41,19 +41,27 @@ export class UserService {
 
   async updateOne(id: number, fields: Partial<{ name: string; email: string; password: string, profilePicture: string, status: string }>): Promise<any> {
     const updates = Object.entries(fields)
-      .filter(([_, value]) => value !== undefined)
-      .map(([key, _]) => `${key} = ?`)
-      .join(', ');
+        .filter(([_, value]) => value !== undefined)
+        .map(([key, _]) => `${key} = ?`)
+        .join(', ');
 
     const values = Object.values(fields).filter((value) => value !== undefined);
 
     const sql = `UPDATE User SET ${updates} WHERE id = ?`;
-    return await this.dbService.query(sql, [...values, id]);
+
+    try {
+      await this.getOne(id)
+      return await this.dbService.query(sql, [...values, id]);
+    } catch (error) {
+      throw new HttpException(error.message, error.getStatus ? error.getStatus() : 500);
+    }
+
   }
 
   async deleteOne(id: number): Promise<any> {
     const sql = 'DELETE FROM User WHERE id = ?';
     try {
+      await this.getOne(id)
       return await this.dbService.query(sql, [id]);
     } catch (error) {
       throw new HttpException(error.message, error.getStatus ? error.getStatus() : 500);
